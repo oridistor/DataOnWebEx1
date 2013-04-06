@@ -1,4 +1,5 @@
 import java.util.Collection;
+import java.util.Enumeration;
 import java.util.Map;
 import java.util.Set;
 
@@ -16,95 +17,146 @@ public class SlowIndexWriter {
 
 	
 	private class Index {
-		private abstract class MyGenericTree<K, V> implements Map<K,V> {
+		private abstract class NodeEntry<K extends Comparable> {
+			private NodeEntry<K> left;
+			private NodeEntry<K> right;
+			private K key;
 
-			@Override
+			NodeEntry<K> getLeft() {
+				return left;
+			}
+			
+			NodeEntry<K> getRight() {
+				return right;
+			}
+			
+			int compareKey(K key) {
+				return this.key.compareTo(key);
+			}
+			
+			K getKey() {
+				return key;
+			}
+			
+			NodeEntry<K> addChild(NodeEntry<K> entry) {
+				int res = compareKey(entry.getKey());
+				if (res == 0) {
+					return mergeEntry(entry);
+				}
+				if (res < 0) {
+					if (right == null) {
+						right = entry;
+						
+					} else {
+						this.right.addChild(entry);
+					}
+				}
+				if (res > 0) {
+					if (left == null) {
+						left = entry;
+						
+					} else {
+						this.left.addChild(entry);
+					}
+				}
+				return this;
+			}
+			
+			abstract NodeEntry<K> mergeEntry(NodeEntry<K> entry);
+		}
+		
+		private abstract class MyGenericTree<K extends Comparable, O extends NodeEntry<K>> {
+			private O root;
+			
 			public void clear() {
 				// TODO Auto-generated method stub
 				
 			}
+			
+			
 
-			@Override
 			public boolean containsKey(Object key) {
 				// TODO Auto-generated method stub
 				return false;
 			}
 
-			@Override
 			public boolean containsValue(Object value) {
 				// TODO Auto-generated method stub
 				return false;
 			}
 
-			@Override
-			public Set<java.util.Map.Entry<K, V>> entrySet() {
+			
+			public O get(Object key) {
 				// TODO Auto-generated method stub
 				return null;
 			}
 
-			@Override
-			public V get(Object key) {
-				// TODO Auto-generated method stub
-				return null;
-			}
-
-			@Override
 			public boolean isEmpty() {
 				// TODO Auto-generated method stub
 				return false;
 			}
 
-			@Override
 			public Set<K> keySet() {
 				// TODO Auto-generated method stub
 				return null;
 			}
 
-			@Override
-			public V put(K key, V value) {
+			public O put(O value) {
+				root.addChild(value);
+				return value;
+			}
+
+			public void putAll(Enumeration<? extends O> m) {
+				// TODO Auto-generated method stub
+				while (m.hasMoreElements()) {
+					root.addChild(m.nextElement());
+				}
+			}
+
+			public O remove(Object key) {
 				// TODO Auto-generated method stub
 				return null;
 			}
 
-			@Override
-			public void putAll(Map<? extends K, ? extends V> m) {
-				// TODO Auto-generated method stub
-				
-			}
-
-			@Override
-			public V remove(Object key) {
-				// TODO Auto-generated method stub
-				return null;
-			}
-
-			@Override
 			public int size() {
 				// TODO Auto-generated method stub
 				return 0;
 			}
 
-			@Override
-			public Collection<V> values() {
+			public Collection<O> values() {
 				// TODO Auto-generated method stub
 				return null;
 			}
 			
 		}
 		
-		private abstract class Node {
+		private class WordNode extends NodeEntry<String> {
+
+			@Override
+			NodeEntry<String> mergeEntry(NodeEntry<String> entry) {
+				// TODO Auto-generated method stub
+				return null;
+			}
 			
 		}
 		
-		private class WordNode extends Node {
+		private class NodeNode extends NodeEntry<Integer> {
+
+			@Override
+			NodeEntry<Integer> mergeEntry(NodeEntry<Integer> entry) {
+				// TODO Auto-generated method stub
+				return null;
+			}
 			
 		}
 		
-		private class NodeNode extends Node {
-			
-		}
-		
-		private class NameNode extends Node {
+		private class NameNode extends Index.NodeEntry<String> {
+
+			@Override
+			NodeEntry<String> mergeEntry(NodeEntry<String> entry) {
+				// TODO Auto-generated method stub
+				return null;
+			}
 			
 		}
 		
