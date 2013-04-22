@@ -17,16 +17,16 @@ public class SlowIndexWriter {
 
 	
 	private class Index {
-		private abstract class NodeEntry<K extends Comparable> {
-			private NodeEntry<K> left;
-			private NodeEntry<K> right;
+		private abstract class NodeEntry<K extends Comparable, V> {
+			private NodeEntry<K, V> left;
+			private NodeEntry<K, V> right;
 			private K key;
 
-			NodeEntry<K> getLeft() {
+			NodeEntry<K, V> getLeft() {
 				return left;
 			}
 			
-			NodeEntry<K> getRight() {
+			NodeEntry<K, V> getRight() {
 				return right;
 			}
 			
@@ -38,7 +38,21 @@ public class SlowIndexWriter {
 				return key;
 			}
 			
-			NodeEntry<K> addChild(NodeEntry<K> entry) {
+			NodeEntry<K, V> getKeyElement(K element) {
+				int res = compareKey(entry.getKey());
+				if (res == 0) return this;
+				if (res < 0) {
+					if (right == null) return null;
+					else return right.getKeyElement(element);
+				}
+				if (res > 0) {
+					if (left == null) return null;
+					else return left.getKeyElement(element);
+				}
+				return null
+			}
+			
+			NodeEntry<K, V> addChild(NodeEntry<K, V> entry) {
 				int res = compareKey(entry.getKey());
 				int leftSize = (left == null)? 0 : left.size();
 				int rightSize = (right == null)? 0 : right.size();
@@ -52,7 +66,15 @@ public class SlowIndexWriter {
 					} else {
 						this.right.addChild(entry);
 						if (rightSize > leftSize) {
-							K tempKey = key;
+							NodeEntry<K, V> tempRef = this;
+							NodeEntry<K, V> replaceThis = removeKeyTree(right.minKey());
+							if (replaceThis.right != null) right.addChild(replaceThis.right);
+							replaceThis.right = right;
+							replaceThis.left = left;
+							right = null;
+							left = null;
+							this = replaceThis;
+							left.addChild(tempRef);
 						}
 						
 					}
@@ -63,6 +85,17 @@ public class SlowIndexWriter {
 						
 					} else {
 						this.left.addChild(entry);
+						if (rightSize < leftSize) {
+							NodeEntry<K, V> tempRef = this;
+							NodeEntry<K, V> replaceThis = removeKeyTree(left.maxKey());
+							if (replaceThis.left != null) left.addChild(replaceThis.left);
+							replaceThis.right = right;
+							replaceThis.left = left;
+							right = null;
+							left = null;
+							this = replaceThis;
+							right.addChild(tempRef);
+						}
 					}
 				}
 				return this;
@@ -80,13 +113,13 @@ public class SlowIndexWriter {
 				else return left.minKey();
 			}
 			
-			private NodeEntry<K> removeKeyTree(K value) {
+			private NodeEntry<K, V> removeKeyTree(K value) {
 				int res = compareKey(value);
 				if (res == 0) return this;
 				if (res < 0) {
 					if (right == null) return null;
 					else {
-						NodeEntry<K> toRet = right.removeKeyTree(value);
+						NodeEntry<K, V> toRet = right.removeKeyTree(value);
 						if (right == toRet) {
 							right = null;
 						}
@@ -96,7 +129,7 @@ public class SlowIndexWriter {
 				if (res > 0) {
 					if (left == null) return null;
 					else {
-						NodeEntry<K> toRet = left.removeKeyTree(value);
+						NodeEntry<K, V> toRet = left.removeKeyTree(value);
 						if (left == toRet) {
 							left = null;
 						}
@@ -111,38 +144,31 @@ public class SlowIndexWriter {
 				else return right.maxKey();
 			}
 			
-			abstract NodeEntry<K> mergeEntry(NodeEntry<K> entry);
+			abstract NodeEntry<K, V> mergeEntry(NodeEntry<K, V> entry);
+			
+			abstract V getValue();
 		}
 		
-		private abstract class MyGenericTree<K extends Comparable, O extends NodeEntry<K>> {
+		private abstract class MyGenericTree<K extends Comparable, O extends NodeEntry<K, V>> {
 			private O root;
 			
 			public void clear() {
-				// TODO Auto-generated method stub
-				
+				root = null;
 			}
 			
 			
 
 			public boolean containsKey(Object key) {
-				// TODO Auto-generated method stub
-				return false;
-			}
-
-			public boolean containsValue(Object value) {
-				// TODO Auto-generated method stub
-				return false;
+				return (root.getKeyElement(key) != null);
 			}
 
 			
 			public O get(Object key) {
-				// TODO Auto-generated method stub
-				return null;
+				return root.getKeyElement(key);
 			}
 
 			public boolean isEmpty() {
-				// TODO Auto-generated method stub
-				return false;
+				return (root == null);
 			}
 
 			public Set<K> keySet() {
@@ -156,20 +182,18 @@ public class SlowIndexWriter {
 			}
 
 			public void putAll(Enumeration<? extends O> m) {
-				// TODO Auto-generated method stub
 				while (m.hasMoreElements()) {
 					root.addChild(m.nextElement());
 				}
 			}
 
 			public O remove(Object key) {
-				// TODO Auto-generated method stub
+				root 
 				return null;
 			}
 
 			public int size() {
-				// TODO Auto-generated method stub
-				return 0;
+				return root.size();
 			}
 
 			public Collection<O> values() {
