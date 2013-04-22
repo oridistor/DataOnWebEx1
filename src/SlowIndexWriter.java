@@ -40,6 +40,8 @@ public class SlowIndexWriter {
 			
 			NodeEntry<K> addChild(NodeEntry<K> entry) {
 				int res = compareKey(entry.getKey());
+				int leftSize = (left == null)? 0 : left.size();
+				int rightSize = (right == null)? 0 : right.size();
 				if (res == 0) {
 					return mergeEntry(entry);
 				}
@@ -49,6 +51,10 @@ public class SlowIndexWriter {
 						
 					} else {
 						this.right.addChild(entry);
+						if (rightSize > leftSize) {
+							K tempKey = key;
+						}
+						
 					}
 				}
 				if (res > 0) {
@@ -60,6 +66,49 @@ public class SlowIndexWriter {
 					}
 				}
 				return this;
+			}
+			
+			int size() {
+				int finalSize = 1;
+				if (left != null) finalSize += left.size();
+				if (right != null) finalSize += right.size();
+				return finalSize;
+			}
+			
+			K minKey() {
+				if (left == null) return key;
+				else return left.minKey();
+			}
+			
+			private NodeEntry<K> removeKeyTree(K value) {
+				int res = compareKey(value);
+				if (res == 0) return this;
+				if (res < 0) {
+					if (right == null) return null;
+					else {
+						NodeEntry<K> toRet = right.removeKeyTree(value);
+						if (right == toRet) {
+							right = null;
+						}
+						return toRet;
+					}
+				}
+				if (res > 0) {
+					if (left == null) return null;
+					else {
+						NodeEntry<K> toRet = left.removeKeyTree(value);
+						if (left == toRet) {
+							left = null;
+						}
+						return toRet;
+					}
+				}
+				return null;
+			}
+			
+			K maxKey() {
+				if (right == null) return key;
+				else return right.maxKey();
 			}
 			
 			abstract NodeEntry<K> mergeEntry(NodeEntry<K> entry);
