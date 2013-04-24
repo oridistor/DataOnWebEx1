@@ -1,5 +1,8 @@
 import java.util.Collection;
 import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -17,30 +20,50 @@ public class SlowIndexWriter {
 
 	
 	private class Index {
-		private abstract class NodeEntry<K extends Comparable, V> {
-			private NodeEntry<K, V> left;
-			private NodeEntry<K, V> right;
+		private abstract class NodeEntry<K extends Comparable> {			
+			abstract K getKey();
+			
+			abstract NodeEntry<K> mergeEntry(NodeEntry<K> entry);
+		}
+		
+		@SuppressWarnings("rawtypes")
+		private class MyGenericTree<K extends Comparable, O extends NodeEntry<K>> {
+			private O curNode;
+			private MyGenericTree<K, O> left;
+			private MyGenericTree<K, O> right;
 			private K key;
 
-			NodeEntry<K, V> getLeft() {
+			MyGenericTree() {
+				curNode = null;
+				left = null;
+				right = null;
+				key = null;
+			}
+			
+			private MyGenericTree<K, O> getLeft() {
 				return left;
 			}
 			
-			NodeEntry<K, V> getRight() {
+			private MyGenericTree<K, O> getRight() {
 				return right;
 			}
 			
-			int compareKey(K key) {
-				return this.key.compareTo(key);
+			private int compareKey(K key) {
+				int compareTo = key.compareTo(key);
+				return compareTo;
 			}
 			
-			K getKey() {
+			private O getNode() {
+				return curNode;
+			}
+			
+			private K getKey() {
 				return key;
 			}
 			
-			NodeEntry<K, V> getKeyElement(K element) {
-				int res = compareKey(entry.getKey());
-				if (res == 0) return this;
+			O getKeyElement(K element) {
+				int res = compareKey(element);
+				if (res == 0) return this.curNode;
 				if (res < 0) {
 					if (right == null) return null;
 					else return right.getKeyElement(element);
@@ -49,52 +72,57 @@ public class SlowIndexWriter {
 					if (left == null) return null;
 					else return left.getKeyElement(element);
 				}
-				return null
+				return null;
 			}
 			
-			NodeEntry<K, V> addChild(NodeEntry<K, V> entry) {
+			MyGenericTree<K, O> addSubTree(MyGenericTree<K, O> subTree) {
+				if (subTree.right != null) {
+					addSubTree(subTree.right);
+					subTree.right = null;
+				}
+				if (subTree.left != null) {
+					addSubTree(subTree.left);
+					subTree.left = null;
+				}
+				addChild(curNode);
+				return this;
+			}
+			
+			MyGenericTree<K, O> addChild(O entry) {
 				int res = compareKey(entry.getKey());
 				int leftSize = (left == null)? 0 : left.size();
 				int rightSize = (right == null)? 0 : right.size();
 				if (res == 0) {
-					return mergeEntry(entry);
+					curNode.mergeEntry(entry);
 				}
 				if (res < 0) {
 					if (right == null) {
-						right = entry;
-						
+						right = new MyGenericTree<K, O>();
+						right.curNode = entry;
 					} else {
-						this.right.addChild(entry);
+						right.addChild(entry);
 						if (rightSize > leftSize) {
-							NodeEntry<K, V> tempRef = this;
-							NodeEntry<K, V> replaceThis = removeKeyTree(right.minKey());
-							if (replaceThis.right != null) right.addChild(replaceThis.right);
-							replaceThis.right = right;
-							replaceThis.left = left;
-							right = null;
-							left = null;
-							this = replaceThis;
-							left.addChild(tempRef);
+							MyGenericTree<K, O> replaceThis = removeKeyTree(right.minKey());
+							if (replaceThis.getRight() != null) right.addChild(replaceThis.getRight().getNode());
+							left.addChild(curNode);
+							curNode = replaceThis.getNode();
+							key = replaceThis.getKey();
 						}
 						
 					}
 				}
 				if (res > 0) {
 					if (left == null) {
-						left = entry;
-						
+						left = new MyGenericTree<K, O>();
+						left.curNode = entry;
 					} else {
-						this.left.addChild(entry);
-						if (rightSize < leftSize) {
-							NodeEntry<K, V> tempRef = this;
-							NodeEntry<K, V> replaceThis = removeKeyTree(left.maxKey());
-							if (replaceThis.left != null) left.addChild(replaceThis.left);
-							replaceThis.right = right;
-							replaceThis.left = left;
-							right = null;
-							left = null;
-							this = replaceThis;
-							right.addChild(tempRef);
+						right.addChild(entry);
+						if (rightSize > leftSize) {
+							MyGenericTree<K, O> replaceThis = removeKeyTree(left.maxKey());
+							if (replaceThis.getLeft() != null) left.addChild(replaceThis.getLeft().getNode());
+							right.addChild(curNode);
+							curNode = replaceThis.getNode();
+							key = replaceThis.getKey();
 						}
 					}
 				}
@@ -113,13 +141,21 @@ public class SlowIndexWriter {
 				else return left.minKey();
 			}
 			
-			private NodeEntry<K, V> removeKeyTree(K value) {
+			Set<K> getSet() {
+				Set<K> toRet = new HashSet();
+				toRet.add(key);
+				if (right != null) toRet.addAll(right.getSet());
+				if (left != null) toRet.addAll(left.getSet());
+				return toRet;
+			}
+			
+			private MyGenericTree<K,O> removeKeyTree(K value) {
 				int res = compareKey(value);
 				if (res == 0) return this;
 				if (res < 0) {
 					if (right == null) return null;
 					else {
-						NodeEntry<K, V> toRet = right.removeKeyTree(value);
+						MyGenericTree<K,O> toRet = right.removeKeyTree(value);
 						if (right == toRet) {
 							right = null;
 						}
@@ -129,7 +165,7 @@ public class SlowIndexWriter {
 				if (res > 0) {
 					if (left == null) return null;
 					else {
-						NodeEntry<K, V> toRet = left.removeKeyTree(value);
+						MyGenericTree<K,O> toRet = left.removeKeyTree(value);
 						if (left == toRet) {
 							left = null;
 						}
@@ -144,91 +180,114 @@ public class SlowIndexWriter {
 				else return right.maxKey();
 			}
 			
-			abstract NodeEntry<K, V> mergeEntry(NodeEntry<K, V> entry);
-			
-			abstract V getValue();
-		}
-		
-		private abstract class MyGenericTree<K extends Comparable, O extends NodeEntry<K, V>> {
-			private O root;
 			
 			public void clear() {
-				root = null;
+				curNode = null;
+				left = null;
+				right = null;
 			}
 			
 			
 
-			public boolean containsKey(Object key) {
-				return (root.getKeyElement(key) != null);
+			public boolean containsKey(K key) {
+				return (getKeyElement(key) != null);
 			}
 
 			
-			public O get(Object key) {
-				return root.getKeyElement(key);
+			public O get(K key) {
+				return getKeyElement(key);
 			}
 
 			public boolean isEmpty() {
-				return (root == null);
-			}
-
-			public Set<K> keySet() {
-				// TODO Auto-generated method stub
-				return null;
+				return (curNode == null);
 			}
 
 			public O put(O value) {
-				root.addChild(value);
+				addChild(value);
 				return value;
 			}
 
 			public void putAll(Enumeration<? extends O> m) {
 				while (m.hasMoreElements()) {
-					root.addChild(m.nextElement());
+					addChild(m.nextElement());
 				}
 			}
 
-			public O remove(Object key) {
-				root 
+			public O remove(K key) {
+				if (curNode != null) {
+					MyGenericTree<K, O> subTree = removeKeyTree(key);
+					if (subTree == null) return null;
+					if (subTree.right != null) addSubTree(subTree.right);
+					if (subTree.left != null) addSubTree(subTree.right);
+					return subTree.getNode();
+				}
 				return null;
-			}
-
-			public int size() {
-				return root.size();
 			}
 
 			public Collection<O> values() {
-				// TODO Auto-generated method stub
-				return null;
+				HashSet<O> toRet = new HashSet<O>();
+				if (curNode != null) toRet.add(curNode);
+				if (right != null) toRet.addAll(right.values());
+				if (left != null) toRet.addAll(left.values());
+				return toRet;
 			}
 			
 		}
 		
 		private class WordNode extends NodeEntry<String> {
-
+			private int frequency;
+			private List tweetList;
+			private String name;
+			
 			@Override
 			NodeEntry<String> mergeEntry(NodeEntry<String> entry) {
-				// TODO Auto-generated method stub
-				return null;
+				WordNode wordEntry = (WordNode)entry;
+				frequency += wordEntry.frequency;
+				tweetList.addAll(wordEntry.tweetList);
+				return this;
+			}
+
+			@Override
+			String getKey() {
+				return name;
 			}
 			
 		}
 		
 		private class NodeNode extends NodeEntry<Integer> {
 
+			Integer id;
+			String name;
+			Set<NodeNode> followers;
+			Set<NodeNode> Followed;
+			Set<Integer> tweetId;
+			boolean publicNode;
+			
 			@Override
 			NodeEntry<Integer> mergeEntry(NodeEntry<Integer> entry) {
-				// TODO Auto-generated method stub
-				return null;
+				throw new UnsupportedOperationException();
+			}
+			@Override
+			Integer getKey() {
+				return id;
 			}
 			
 		}
 		
-		private class NameNode extends Index.NodeEntry<String> {
+		private class NameNode extends NodeEntry<String> {
+			String name;
+			Set<NodeNode> nodes;
+			
+			@Override
+			String getKey() {
+				return name;
+			}
 
 			@Override
 			NodeEntry<String> mergeEntry(NodeEntry<String> entry) {
-				// TODO Auto-generated method stub
-				return null;
+				NameNode nameEntry = (NameNode)entry;
+				nodes.addAll(nameEntry.nodes);
+				return this;
 			}
 			
 		}
@@ -238,12 +297,19 @@ public class SlowIndexWriter {
 		}
 		
 		private class NodesTree extends MyGenericTree<Integer, NodeNode> {
+			private Set<NodeNode> publicList;
 			
+			@Override
+			public NodeNode put(NodeNode value) {
+				if (value.publicNode) publicList.add(value); 
+				return super.put(value);
+			}
 		}
 		
 		private class NamesTree extends MyGenericTree<String, NameNode> {
 			
 		}
+		
 		
 	}
 	

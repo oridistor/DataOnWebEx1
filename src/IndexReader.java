@@ -10,7 +10,6 @@ public class IndexReader {
 	public String getName(int nodeId) {
 		// TODO: write this function
 		return "";
-		System.out.println("this is a test");
 	}
 	
 	/**
