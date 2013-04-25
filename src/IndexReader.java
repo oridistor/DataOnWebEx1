@@ -7,8 +7,11 @@ public class IndexReader {
 	 * network
 	 */
 	public String getName(int nodeId) {
-		// TODO: write this function
-		return "";
+		return fetchNodeById(nodeId).getName();
+	}
+	
+	private Index.NodeNode fetchNodeById(int nodeId) {
+		return Index.getInstance().getNodesTree().get(nodeId);
 	}
 
 	/**
@@ -17,8 +20,9 @@ public class IndexReader {
 	 * if its tweets are private)
 	 */
 	public boolean isPublic(int nodeId) {
-		// TODO: write this function
-		return false;
+		Index.NodeNode NodeNode = fetchNodeById(nodeId);
+		if (NodeNode == null) return false;
+		else return NodeNode.isPublicNode();
 	}
 
 	/**
@@ -27,8 +31,9 @@ public class IndexReader {
 	 * if the node does not exist in the network
 	 */
 	public Enumeration<Integer> getFollowing(int nodeId) {
-		// TODO: write this function
-		return null;
+		Index.NodeNode curNode = fetchNodeById(nodeId);
+		if (curNode == null) return null;
+		return curNode.getFollows().getKeyEnumeration();
 	}
 
 	/**
@@ -38,8 +43,9 @@ public class IndexReader {
 	 * network
 	 */
 	public Enumeration<Integer> getFollowers(int nodeId) {
-		// TODO: write this function
-		return null;
+		Index.NodeNode curNode = fetchNodeById(nodeId);
+		if (curNode == null) return null;
+		return curNode.getFollowedBy().getKeyEnumeration();
 	}
 
 	/**
@@ -49,8 +55,9 @@ public class IndexReader {
 	 * exist in the network
 	 */
 	public Enumeration<String> getTweets(int nodeId) {
-		// TODO: write this function
-		return null;
+		Index.NodeNode curNode = fetchNodeById(nodeId);
+		if (curNode == null) return null;
+		return curNode.getTweetList().getTweets();
 	}
 
 	/**
@@ -58,8 +65,9 @@ public class IndexReader {
 	 * Returns -1 if the node does not exist in the network
 	 */
 	public int getOutDegree(int nodeId) {
-		// TODO: write this function
-		return -2;
+		Index.NodeNode curNode = fetchNodeById(nodeId);
+		if (curNode == null) return -1;
+		else return curNode.getFollows().size();
 	}
 
 	/**
@@ -67,8 +75,9 @@ public class IndexReader {
 	 * Returns -1 if the node does not exist in the network
 	 */
 	public int getInDegree(int nodeId) {
-		// TODO: write this function
-		return -2;
+		Index.NodeNode curNode = fetchNodeById(nodeId);
+		if (curNode == null) return -1;
+		else return curNode.getFollowedBy().size();
 	}
 
 	/**
@@ -77,8 +86,9 @@ public class IndexReader {
 	 * network
 	 */
 	public Enumeration<Integer> getNodesByName(String name) {
-		// TODO: write this function
-		return null;
+		Index.NameNode curName = Index.getInstance().getNamesTree().get(name);
+		if (curName == null) return null;
+		else return curName.getNodesId();
 	}
 
 	/**
@@ -90,9 +100,11 @@ public class IndexReader {
 	 * returned in the order they appeared in tweets.txt Returns an empty
 	 * enumeration if the word does not appear in any tweet visible to the user
 	 */
-	public Enumeration<Map.Entry<Integer, String>> getTweetsByWord(String word) {
-		// TODO: write this function
-		return null;
+	public Enumeration<Map.Entry<Integer, String>> getTweetsByWord(int nodeId, String word) {
+		Index.NodeNode curNode = fetchNodeById(nodeId);
+		Index.WordNode curWord = Index.getInstance().getWordsTree().get(word);
+		if (curWord == null) return null; // TODO - write an empty enumeration definition
+		return curWord.getTweetsVisibleBy(curNode);
 	}
 
 	/**
@@ -100,7 +112,8 @@ public class IndexReader {
 	 * containing this word
 	 */
 	public int getWordFrequency(String word) {
-		// TODO: write this function
-		return -2;
+		Index.WordNode curWord = Index.getInstance().getWordsTree().get(word);
+		if (curWord == null) return 0;
+		else return curWord.getFrequency();
 	}
 }

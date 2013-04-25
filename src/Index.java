@@ -1,7 +1,10 @@
+import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map.Entry;
+import java.util.NoSuchElementException;
 import java.util.Set;
 
 class Index {
@@ -287,7 +290,7 @@ class Index {
 
 	class WordNode extends NodeEntry<String> {
 		private int frequency;
-		private Set<TweetNode> tweetList;
+		private TweetsList tweetList;
 		private String name;
 		private int id;
 
@@ -295,7 +298,7 @@ class Index {
 			frequency = 1;
 			id = integer;
 			name = curWord;
-			tweetList = new GenericSortedSet<Integer, TweetNode>();
+			tweetList = new TweetsList();
 			tweetList.add(curTweet);
 		}
 
@@ -310,6 +313,15 @@ class Index {
 		@Override
 		String getKey() {
 			return name;
+		}
+
+		public int getFrequency() {
+			return frequency;
+		}
+
+		public Enumeration<Entry<Integer, String>> getTweetsVisibleBy(
+				NodeNode curNode) {
+			return tweetList.getTweetsVisibleBy(curNode);
 		}
 
 	}
@@ -352,8 +364,14 @@ class Index {
 		}
 
 		String getText() {
-			
-			return "";
+			WordsIDTree wt = Index.getInstance().getWordByIDTree();
+			String text = "";
+			for (int i = 0; i < tweetContent.length; i++) {
+				if (!text.equals("")) text += " ";
+				String curWord = wt.get(tweetContent[i]).getName();
+				text += curWord;
+			}
+			return text;
 		}
 
 		@Override
@@ -371,9 +389,9 @@ class Index {
 
 		private Integer id;
 		private String name;
-		private Set<NodeNode> follows;
-		private Set<NodeNode> followedBy;
-		private Set<TweetNode> tweetList;
+		private GenericSortedSet<Integer, NodeNode> follows;
+		private GenericSortedSet<Integer, NodeNode> followedBy;
+		private TweetsList tweetList;
 		private boolean publicNode;
 
 		public NodeNode(int curId, String name2, boolean isPublic) {
@@ -382,7 +400,7 @@ class Index {
 			publicNode = isPublic;
 			follows = new GenericSortedSet<Integer, NodeNode>();
 			followedBy = new GenericSortedSet<Integer, NodeNode>();
-			tweetList = new GenericSortedSet<Integer, TweetNode>();
+			tweetList = new TweetsList();
 		}
 
 		@Override
@@ -399,15 +417,15 @@ class Index {
 			return name;
 		}
 
-		public Set<NodeNode> getFollowedBy() {
+		public GenericSortedSet<Integer, NodeNode> getFollowedBy() {
 			return followedBy;
 		}
 		
-		public Set<NodeNode> getFollows() {
+		public GenericSortedSet<Integer, NodeNode> getFollows() {
 			return follows;
 		}
 
-		public Set<TweetNode> getTweetList() {
+		public TweetsList getTweetList() {
 			return tweetList;
 		}
 
@@ -419,7 +437,7 @@ class Index {
 
 	class NameNode extends NodeEntry<String> {
 		String name;
-		Set<NodeNode> nodes;
+		GenericSortedSet<Integer, NodeNode> nodes;
 
 		public NameNode(String name2, NodeNode nodeNode) {
 			name = name2;
@@ -437,6 +455,10 @@ class Index {
 			NameNode nameEntry = (NameNode) entry;
 			nodes.addAll(nameEntry.nodes);
 			return this;
+		}
+
+		public Enumeration<Integer> getNodesId() {
+			return nodes.getKeyEnumeration();
 		}
 
 	}
@@ -479,13 +501,24 @@ class Index {
 	}
 
 	class NodesTree extends MyGenericTree<Integer, NodeNode> {
-		private Set<NodeNode> publicList;
+		
 
+		private GenericSortedSet<Integer, NodeNode> publicList;
+
+		public NodesTree() {
+			super();
+			publicList = new GenericSortedSet<Integer, NodeNode>();
+		}
+		
 		@Override
 		public NodeNode put(NodeNode value) {
 			if (value.publicNode)
 				publicList.add(value);
 			return super.put(value);
+		}
+
+		public Enumeration<Integer> getPublicList() {
+			return publicList.getKeyEnumeration();
 		}
 	}
 
@@ -499,6 +532,28 @@ class Index {
 	
 	class GenericSortedSet<K extends Comparable<K>, O extends NodeEntry<K>> implements Set<O> {
 
+		private class GenericSortedKeyEnumeration implements Enumeration<K> {
+			
+			public GenericSortedKeyEnumeration(GenericSortedSet<K, O> current) {
+				super();
+				this.current = current;
+			}
+
+			GenericSortedSet<K, O> current;
+			
+			@Override
+			public boolean hasMoreElements() {
+				return testListNotEmpty(current);
+			}
+
+			@Override
+			public K nextElement() {
+				if (!hasMoreElements()) throw new NoSuchElementException();
+				return current.curData.getKey();
+			}
+			
+		}
+		
 		private class GenericSortedIterator implements Iterator<O> {
 			
 			GenericSortedSet<K, O> prev, current;
@@ -641,31 +696,114 @@ class Index {
 			}
 			return changed;
 		}
-
-		@Override
-		public boolean retainAll(Collection<?> arg0) {
-			// TODO Auto-generated method stub
-			return false;
+		
+		public Enumeration<K> getKeyEnumeration() {
+			return new GenericSortedKeyEnumeration(this);
 		}
 
 		@Override
 		public int size() {
+			// TODO: Write this a bit cheaper? Maybe remember the number?
 			int curSize = 1;
 			if (next != null) curSize += next.size();
 			return curSize;
 		}
 
 		@Override
-		public Object[] toArray() {
-			// TODO Auto-generated method stub
-			return null;
+		public boolean retainAll(Collection<?> arg0) {
+			boolean changed = false;
+			Iterator<?> iter;
+			for(iter = iterator(); iter.hasNext(); iter.next()) {
+				if(!arg0.contains(iter)) {
+					remove(curData);
+					changed = true;
+				}
+			}
+			return changed;
 		}
 
 		@Override
+		public Object[] toArray() {
+			Iterator<?> iter;
+			Object[] arr = new Object[size()];
+			int i = 0;
+			for(iter = iterator(); iter.hasNext(); iter.next()) {
+				arr[i++] = iter;
+			}
+			return arr;
+		}
+
+		@SuppressWarnings({ "unchecked" })
+		@Override
 		public <T> T[] toArray(T[] arg0) {
+			Iterator<?> iter;
+			T[] arr = null;
+			if (arg0.length < size()) {
+				arr = (T[]) Array.newInstance(arg0.getClass(), size());
+			}
+			int i = 0;
+			for(iter = iterator(); iter.hasNext(); iter.next()) {
+				if(arr != null) { arr[i++] = (T)iter; }
+				else { arg0[i] = (T)iter; }
+			}
+			if(arr != null) { return arr; }
+			else { return arg0; }
+		}
+
+		
+	}
+	
+	class TweetsList extends GenericSortedSet<Integer, TweetNode> {
+		
+		class TweetsEnumeration implements Enumeration<String> {
+			GenericSortedSet<Integer, TweetNode> current;
+			Enumeration<Integer> followList;
+			Enumeration<Integer> publicList;
+			int curFollowListIndex;
+			int curPublicListIndex;
+			
+			
+			public TweetsEnumeration(TweetsList current) {
+				super();
+				this.current = current;
+				this.followList = null;
+				this.publicList = null;
+				this.curFollowListIndex = 0;
+				this.curPublicListIndex = 0;
+			}
+			
+			public TweetsEnumeration(TweetsList current, NodeNode curNode) {
+				super();
+				this.current = current;
+				this.followList = curNode.getFollows().getKeyEnumeration();
+				this.publicList = Index.getInstance().getNodesTree().getPublicList();
+				this.curFollowListIndex = followList.hasMoreElements()? followList.nextElement() : -1;
+				this.curPublicListIndex = publicList.hasMoreElements()? publicList.nextElement() : -1;;
+			}
+			
+			public boolean hasMoreElements() {
+				return testListNotEmpty(current);
+			}
+
+			@Override
+			public String nextElement() {
+				if (!hasMoreElements()) throw new NoSuchElementException();
+				// TODO: CHECK IF YOU CAN SEE THE TWEET SOMEHOW
+				String text = current.curData.getText();
+				current = current.next;
+				return text;
+			}
+			
+		}
+		
+		public Enumeration<String> getTweets() {
+			return new TweetsEnumeration(this);
+		}
+
+		public Enumeration<Entry<Integer, String>> getTweetsVisibleBy(
+				NodeNode curNode) {
 			// TODO Auto-generated method stub
 			return null;
 		}
-		
 	}
 }
