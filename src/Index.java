@@ -8,6 +8,9 @@ class Index {
 	private static Index singleton;
 	private WordsIDTree wordByIDTree;
 	private NamesIDTree nameByIDTree;
+	private WordsTree wordsTree;
+	private NamesTree namesTree;
+	private NodesTree nodesTree;
 
 	public NamesIDTree getNameByIDTree() {
 		return nameByIDTree;
@@ -19,9 +22,27 @@ class Index {
 	}
 	
 
+	public WordsTree getWordsTree() {
+		return wordsTree;
+	}
+
+
+	public NamesTree getNamesTree() {
+		return namesTree;
+	}
+
+
+	public NodesTree getNodesTree() {
+		return nodesTree;
+	}
+
+
 	private Index() {
 		wordByIDTree = new WordsIDTree();
 		nameByIDTree = new NamesIDTree();
+		namesTree = new NamesTree();
+		wordsTree = new WordsTree();
+		nodesTree = new NodesTree();
 	}
 
 	static Index getInstance() {
@@ -264,11 +285,19 @@ class Index {
 
 	}
 
-	private class WordNode extends NodeEntry<String> {
+	class WordNode extends NodeEntry<String> {
 		private int frequency;
-		private Set<String> tweetList;
+		private Set<TweetNode> tweetList;
 		private String name;
 		private int id;
+
+		public WordNode(Integer integer, String curWord, TweetNode curTweet) {
+			frequency = 1;
+			id = integer;
+			name = curWord;
+			tweetList = new GenericSortedSet<Integer, TweetNode>();
+			tweetList.add(curTweet);
+		}
 
 		@Override
 		NodeEntry<String> mergeEntry(NodeEntry<String> entry) {
@@ -310,15 +339,51 @@ class Index {
 		}
 
 	}
-
-	private class NodeNode extends NodeEntry<Integer> {
-
+	
+	class TweetNode extends NodeEntry<Integer> {
+		Integer[] tweetContent;
+		NodeNode tweeter;
 		Integer id;
-		String name;
-		Set<NodeNode> followers;
-		Set<NodeNode> Followed;
-		Set<Integer> tweetId;
-		boolean publicNode;
+		
+		public TweetNode(int curTweetId, Integer[] wordsList, NodeNode tweeterNode) {
+			id = curTweetId;
+			tweetContent = wordsList;
+			tweeter = tweeterNode;
+		}
+
+		String getText() {
+			
+			return "";
+		}
+
+		@Override
+		Integer getKey() {
+			return id;
+		}
+
+		@Override
+		NodeEntry<Integer> mergeEntry(NodeEntry<Integer> entry) {
+			throw new UnsupportedOperationException();
+		}
+	}
+	
+	class NodeNode extends NodeEntry<Integer> {
+
+		private Integer id;
+		private String name;
+		private Set<NodeNode> follows;
+		private Set<NodeNode> followedBy;
+		private Set<TweetNode> tweetList;
+		private boolean publicNode;
+
+		public NodeNode(int curId, String name2, boolean isPublic) {
+			id = curId;
+			name = name2;
+			publicNode = isPublic;
+			follows = new GenericSortedSet<Integer, NodeNode>();
+			followedBy = new GenericSortedSet<Integer, NodeNode>();
+			tweetList = new GenericSortedSet<Integer, TweetNode>();
+		}
 
 		@Override
 		NodeEntry<Integer> mergeEntry(NodeEntry<Integer> entry) {
@@ -330,11 +395,37 @@ class Index {
 			return id;
 		}
 
+		public String getName() {
+			return name;
+		}
+
+		public Set<NodeNode> getFollowedBy() {
+			return followedBy;
+		}
+		
+		public Set<NodeNode> getFollows() {
+			return follows;
+		}
+
+		public Set<TweetNode> getTweetList() {
+			return tweetList;
+		}
+
+		public boolean isPublicNode() {
+			return publicNode;
+		}
+
 	}
 
-	private class NameNode extends NodeEntry<String> {
+	class NameNode extends NodeEntry<String> {
 		String name;
 		Set<NodeNode> nodes;
+
+		public NameNode(String name2, NodeNode nodeNode) {
+			name = name2;
+			nodes = new GenericSortedSet<Integer, NodeNode>();
+			nodes.add(nodeNode);
+		}
 
 		@Override
 		String getKey() {
@@ -369,6 +460,10 @@ class Index {
 		NodeEntry<Integer> mergeEntry(NodeEntry<Integer> entry) {
 			throw new UnsupportedOperationException();
 		}
+
+		public String getName() {
+			return name;
+		}
 	}
 
 	class WordsTree extends MyGenericTree<String, WordNode> {
@@ -383,7 +478,7 @@ class Index {
 
 	}
 
-	private class NodesTree extends MyGenericTree<Integer, NodeNode> {
+	class NodesTree extends MyGenericTree<Integer, NodeNode> {
 		private Set<NodeNode> publicList;
 
 		@Override
@@ -394,7 +489,7 @@ class Index {
 		}
 	}
 
-	private class NamesTree extends MyGenericTree<String, NameNode> {
+	class NamesTree extends MyGenericTree<String, NameNode> {
 
 	}
 	
