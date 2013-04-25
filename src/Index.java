@@ -1,18 +1,27 @@
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 
 class Index {
 	private static Index singleton;
 	private WordsIDTree wordByIDTree;
+	private NamesIDTree nameByIDTree;
+
+	public NamesIDTree getNameByIDTree() {
+		return nameByIDTree;
+	}
+
 
 	WordsIDTree getWordByIDTree() {
 		return wordByIDTree;
 	}
+	
 
 	private Index() {
 		wordByIDTree = new WordsIDTree();
+		nameByIDTree = new NamesIDTree();
 	}
 
 	static Index getInstance() {
@@ -21,14 +30,12 @@ class Index {
 		return singleton;
 	}
 
-	private abstract class NodeEntry<K extends Comparable> {
+	private abstract class NodeEntry<K extends Comparable<K>> {
 		abstract K getKey();
 
 		abstract NodeEntry<K> mergeEntry(NodeEntry<K> entry);
 	}
-
-	@SuppressWarnings("rawtypes")
-	private class MyGenericTree<K extends Comparable, O extends NodeEntry<K>> {
+	private class MyGenericTree<K extends Comparable<K>, O extends NodeEntry<K>> {
 		private O curNode;
 		private MyGenericTree<K, O> left;
 		private MyGenericTree<K, O> right;
@@ -342,12 +349,37 @@ class Index {
 		}
 
 	}
+	
+	class NameIdNode extends NodeEntry<Integer> {
+		public NameIdNode(String name, Integer id) {
+			super();
+			this.name = name;
+			this.id = id;
+		}
+
+		String name;
+		Integer id;
+
+		@Override
+		Integer getKey() {
+			return id;
+		}
+
+		@Override
+		NodeEntry<Integer> mergeEntry(NodeEntry<Integer> entry) {
+			throw new UnsupportedOperationException();
+		}
+	}
 
 	class WordsTree extends MyGenericTree<String, WordNode> {
 
 	}
 
 	class WordsIDTree extends MyGenericTree<Integer, WordIDNode> {
+
+	}
+	
+	class NamesIDTree extends MyGenericTree<Integer, NameIdNode> {
 
 	}
 
@@ -364,5 +396,181 @@ class Index {
 
 	private class NamesTree extends MyGenericTree<String, NameNode> {
 
+	}
+	
+	private static boolean testListNotEmpty(GenericSortedSet current) {
+		return (current!=null)&&(!current.isEmpty());
+	}
+	
+	class GenericSortedSet<K extends Comparable<K>, O extends NodeEntry<K>> implements Set<O> {
+
+		private class GenericSortedIterator implements Iterator<O> {
+			
+			GenericSortedSet<K, O> prev, current;
+			boolean gotNext;
+			
+			public GenericSortedIterator(GenericSortedSet<K, O> current) {
+				super();
+				this.current = current;
+				this.prev = null;
+				this.gotNext = false;
+			}
+			
+			@Override
+			public boolean hasNext() {
+				return testListNotEmpty(current);
+			}
+
+			@Override
+			public O next() {
+				if (!testListNotEmpty(current)) return null;
+				gotNext = true;
+				O curData = current.curData;
+				prev = current;
+				current = current.next;
+				return curData;
+			}
+
+			@Override
+			public void remove() {
+				if (gotNext) {
+					prev.curData = (current == null)? null : current.curData;
+					prev.next = (current == null)? null : current.next;
+					if (current != null) {
+						current.curData = null;
+						current.next = null;
+					}
+					current = prev;
+					gotNext = false;
+				}
+				
+			}
+			
+		}
+		
+		GenericSortedSet<K, O> next;
+		O curData;
+		
+		@Override
+		public boolean add(O arg0) {
+			if (arg0 == null) return false;
+			int res = curData.getKey().compareTo(arg0.getKey());
+			if (res == 0) return false;
+			if (res > 0) {
+				GenericSortedSet<K, O> newNode = new GenericSortedSet<K, O>();
+				newNode.next = next;
+				newNode.curData = curData;
+				curData = arg0;
+				next = newNode;
+				return true;
+			}
+			if (res < 0) {
+				if (next == null) {
+					GenericSortedSet<K, O> newNode = new GenericSortedSet<K, O>();
+					newNode.next = null;
+					newNode.curData = arg0;
+					next = newNode;
+					return true;
+				} else return next.add(arg0);
+			}
+			return false;
+		}
+		
+		
+
+		@Override
+		public boolean addAll(Collection<? extends O> arg0) {
+			boolean changed = false;
+			for (O o : arg0) {
+				changed = add(o)||changed;
+			}
+			return changed;
+		}
+
+		@Override
+		public void clear() {
+			if (next != null) {
+				next.clear();
+			}
+			next = null;
+			curData = null;
+		}
+
+		@Override
+		public boolean contains(Object arg0) {
+			if (curData.equals(arg0)) return true;
+			if (next != null) return next.contains(arg0);
+			return false;
+		}
+
+		@Override
+		public boolean containsAll(Collection<?> arg0) {
+			boolean doesContainAll = true;
+			for (Object object : arg0) {
+				doesContainAll = doesContainAll&&contains(object);
+			}
+			return doesContainAll;
+		}
+
+		@Override
+		public boolean isEmpty() {
+			return (curData == null);
+		}
+
+		@Override
+		public Iterator<O> iterator() {
+			return new GenericSortedIterator(this);
+		}
+
+		@Override
+		public boolean remove(Object arg0) {
+			if (isEmpty()) return false;
+			if (curData.equals(arg0)) {
+				if (next == null) {
+					curData = null;
+				} else {
+					curData = next.curData;
+					next = next.next;
+				}
+				return true;
+			}
+			if (next != null) return next.contains(arg0);
+			return false;
+		}
+
+		@Override
+		public boolean removeAll(Collection<?> arg0) {
+			boolean changed = false;
+			for (Object object : arg0) {
+				changed = remove(object)||changed;
+			}
+			return changed;
+		}
+
+		@Override
+		public boolean retainAll(Collection<?> arg0) {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		@Override
+		public int size() {
+			int curSize = 1;
+			if (next != null) curSize += next.size();
+			return curSize;
+		}
+
+		@Override
+		public Object[] toArray() {
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		@Override
+		public <T> T[] toArray(T[] arg0) {
+			// TODO Auto-generated method stub
+			return null;
+		}
+		
 	}
 }
